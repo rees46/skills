@@ -7,7 +7,7 @@ description: Helps client agents integrate, debug, or review REES46 JS SDK v3 us
 
 You are helping a client integrate or maintain REES46 JS SDK v3.
 
-The SDK is a browser queue API. The default global is `window.r46`; white-label builds may expose another global. Do not import SDK internals from `src/` in client projects unless explicitly working inside the SDK repository.
+The SDK is a browser queue API. The default global is `window.r46`; white-label builds may expose another global. Use `r46`, REES46 domains, and REES46 dashboard terminology consistently. Do not import SDK internals from `src/` in client projects unless explicitly working inside the SDK repository.
 
 ## Mandatory workflow
 
@@ -18,11 +18,12 @@ The SDK is a browser queue API. The default global is `window.r46`; white-label 
 5. For ecommerce tracking, preserve product IDs, quantities, prices, order IDs, recommendation attribution, and user identifiers from the host app.
 6. For SPA projects, initialize with the SPA flag and trigger page-specific tracking on route changes, not on every component render.
 7. Keep credentials/configurable values outside reusable components. The shop token must come from project config/env/server-rendered data.
-8. Add verification steps: network request check, callback check, console errors, and duplicate event detection.
+8. Never expose `shop_secret` or secret-backed API endpoints in browser code; move imports, exports, cart clearing, NPS review listing, and other server operations to the backend.
+9. Add verification steps: network request check, callback check, console errors, and duplicate event detection.
 
 ## Loading pattern
 
-Use the queue stub before the SDK bundle is available:
+Use the queue stub before the SDK bundle is available. The default bundle CDN is `cdn.rees46.ru`; use another CDN only when the client explicitly provides one:
 
 ```html
 <script>
@@ -33,14 +34,16 @@ Use the queue stub before the SDK bundle is available:
     }
   window.r46('init', 'SHOP_TOKEN')
 </script>
-<script async src="/path/to/r46v3.js"></script>
+<script async src="https://cdn.rees46.ru/v3.js"></script>
 ```
 
 For SPA mode:
 
 ```js
-window.r46('init', 'SHOP_TOKEN', '', undefined, undefined, undefined, true)
+window.r46('init', 'SHOP_TOKEN', 'web', undefined, undefined, undefined, true)
 ```
+
+`stream` is optional but, when provided, must be a merchant-defined source label: case-sensitive, max 16 characters, Latin letters/digits/underscore.
 
 For cookieless/consent/custom device ID options:
 
@@ -64,9 +67,9 @@ window.r46(
 
 Load these files when relevant:
 
-- `references/api.md` — public queue commands and parameter shapes.
-- `references/examples.md` — common integration examples.
-- `references/common-mistakes.md` — mistakes to avoid and review checklist.
+- `references/api.md` — public queue commands and parameter shapes, enriched from Reference API JavaScript sections.
+- `references/examples.md` — common integration examples adapted to REES46/r46 naming.
+- `references/common-mistakes.md` — mistakes to avoid and review checklist, including Reference API gotchas.
 
 ## Output expectations
 

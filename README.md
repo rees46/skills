@@ -1,3 +1,3 @@
 # REES46 Skills
 
-Agent skills
+Agent skills to use with instruments.
