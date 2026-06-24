@@ -18,8 +18,9 @@ The SDK is a browser queue API. The default global is `window.r46`; white-label 
 5. For ecommerce tracking, preserve product IDs, quantities, prices, order IDs, recommendation attribution, and user identifiers from the host app.
 6. For SPA projects, initialize with the SPA flag and trigger page-specific tracking on route changes, not on every component render.
 7. Keep credentials/configurable values outside reusable components. The shop token must come from project config/env/server-rendered data.
-8. Never expose `shop_secret` or secret-backed API endpoints in browser code; move imports, exports, cart clearing, NPS review listing, and other server operations to the backend.
-9. Add verification steps: network request check, callback check, console errors, and duplicate event detection.
+8. Never expose `shop_secret` or secret-backed API endpoints in browser code; move imports, exports, secret-backed cart APIs, NPS review listing, notification center reads, full order history, and other server operations to the backend.
+9. Treat documentation for S2S, mobile SDKs, notification center, full order history, catalog imports, exports, and force profile changes as server/backend guidance unless `references/api.md` explicitly shows a browser `r46` command.
+10. Add verification steps: network request check, callback check, console errors, and duplicate event detection.
 
 ## Loading pattern
 

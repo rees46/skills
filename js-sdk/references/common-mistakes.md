@@ -112,7 +112,7 @@ fetch('/nps/reviews?shop_secret=' + SHOP_SECRET)
 Good:
 
 ```js
-// Put secret-backed cart clearing, exports, imports, NPS review listing, etc. on the server.
+// Put secret-backed cart APIs, exports, imports, NPS review listing, etc. on the server.
 ```
 
 The browser SDK should not contain `shop_secret`.
@@ -132,13 +132,15 @@ Good:
 window.r46('track', 'purchase', orderData)
 ```
 
-## Dropping recommendation attribution
+## Dropping storefront attribution before purchase
 
-When tracking product view, cart, purchase, banner view, or banner click after a recommendation interaction, preserve:
+When tracking product view, cart, banner view, or banner click after a recommendation/search/listing/stories/slider interaction, preserve:
 
 - `recommended_by`
 - `recommended_code`
 - `banner_id` where relevant
+
+Do not add these fields manually to the purchase payload; purchase attribution is derived from earlier interactions.
 
 ## Empty purchase products
 
@@ -188,7 +190,7 @@ window.r46('track', 'cart', [{ id: '1', amount: 2 }]) // full cart snapshot
 window.r46('track', 'cart', { id: '1', amount: 2 }) // single item event
 ```
 
-## Clearing cart from browser
+## Clearing cart from browser with the wrong command
 
 Bad:
 
@@ -199,11 +201,58 @@ window.r46('cart', 'clear', { email: customer.email })
 Good:
 
 ```js
-// Browser SDK can fetch current cart:
-window.r46('cart', 'get', success, failure)
+// Browser SDK can clear the current cart with an empty full-cart snapshot:
+window.r46('track', 'cart', [])
 
-// Cart clearing is a secret-backed server API operation.
+// Browser SDK can also fetch current cart:
+window.r46('cart', 'get', success, failure)
 ```
+
+Secret-key cart clearing endpoints are backend-only; do not expose `shop_secret`.
+
+## Passing purchase attribution manually
+
+Bad:
+
+```js
+window.r46('track', 'purchase', {
+  order: order.id,
+  products: order.items,
+  recommended_by: 'dynamic',
+  recommended_code: 'abc',
+})
+```
+
+Good:
+
+```js
+window.r46('track', 'purchase', {
+  order: order.id,
+  products: order.items,
+})
+```
+
+Purchase attribution is resolved from earlier product view/cart/search/recommendation events.
+
+## Using profile secret operations in browser
+
+Bad:
+
+```js
+fetch('/profile/force_change_email?shop_secret=' + SHOP_SECRET)
+fetch('/profile/purge?shop_secret=' + SHOP_SECRET)
+```
+
+Good:
+
+```js
+window.r46('profile', 'set', {
+  email: user.email,
+  phone: user.phone,
+})
+```
+
+Forced profile changes, full profile reads by arbitrary identifier, and personal data purge are backend operations.
 
 ## Deprecated recommendation syntax
 
@@ -272,7 +321,7 @@ Reference API marks several endpoints as not implemented or not needed in JS SDK
 - NPS review listing;
 - product info by secret endpoint if current SDK source does not support it;
 - not-widgetable products;
-- cart clearing;
+- cart clearing through secret-backed endpoints;
 - custom orders and full user order lists.
 
 ## Confusing trigger names from reference docs
@@ -283,18 +332,18 @@ The reference examples for product-available and product-price-decrease trigger 
 - test the exact trigger with a real `item_id` and identifier;
 - document whether it is Back in Stock or Price Drop in client code.
 
-## Slider markup with old class names
+## Slider markup with wrong class names
 
 Bad:
 
 ```html
-<div class="legacy-slider" data-slider-code="SLIDER_CODE"></div>
+<div class="r46-slider" data-slider-code="SLIDER_CODE"></div>
 ```
 
 Good:
 
 ```html
-<div class="r46-slider" data-slider-code="SLIDER_CODE"></div>
+<div class="rees46-slider" data-slider-code="SLIDER_CODE"></div>
 ```
 
 ## Checklist for reviews

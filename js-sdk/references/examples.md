@@ -192,6 +192,14 @@ window.r46(
 )
 ```
 
+## Clear cart
+
+Use an empty full-cart snapshot when the user clears the cart:
+
+```js
+window.r46('track', 'cart', [])
+```
+
 ## Fetch SDK cart
 
 ```js
@@ -228,6 +236,54 @@ window.r46('track', 'purchase', {
 ```
 
 Fire this once per completed order. Guard against duplicate route renders on success pages.
+
+Do not attach `recommended_by` or `recommended_code` to the purchase payload. Purchase attribution is derived from previous view/cart/search/recommendation interactions.
+
+## Profile identification
+
+Call this when a user logs in, registers, or updates profile data:
+
+```js
+window.r46('profile', 'set', {
+  email: user.email,
+  phone: user.phone,
+  id: user.id,
+  loyalty_id: user.loyaltyId,
+  first_name: user.firstName,
+  last_name: user.lastName,
+})
+```
+
+## Subscription preferences
+
+```js
+window.r46('subscription', 'manage', {
+  email: user.email,
+  email_bulk: true,
+  email_chain: true,
+  sms_bulk: false,
+})
+```
+
+## Price-drop subscription
+
+```js
+window.r46('subscribe_trigger', 'product_price_decrease', {
+  email: user.email,
+  item: product.id,
+  price: product.price,
+})
+```
+
+## Back-in-stock subscription
+
+```js
+window.r46('subscribe_trigger', 'product_available', {
+  email: user.email,
+  item: product.id,
+  properties: { fashion_size: selectedSize },
+})
+```
 
 ## Full search
 
@@ -410,7 +466,7 @@ If `value` is provided for a custom event, it must be an integer.
 Standard rendering:
 
 ```html
-<div class="r46-slider" data-slider-code="SLIDER_CODE"></div>
+<div class="rees46-slider" data-slider-code="SLIDER_CODE"></div>
 ```
 
 Raw data for custom rendering:
@@ -426,7 +482,7 @@ Render into a selected block:
 ```js
 window.r46('slider', {
   code: 'SLIDER_CODE',
-  block: 'r46-slider',
+  block: 'rees46-slider',
   config: {
     dotBgColor: 'red',
     dotActiveBgColor: 'green',

@@ -15,6 +15,8 @@ The public web API is the queue command surface. Use `r46`, REES46 domains, and 
 - `stream` labels the source of data for segmentation. It is merchant-defined, case-sensitive, max 16 chars, and should use Latin letters, digits, and `_`.
 - Web SDK should be initialized on every opened page. In SPAs initialize once with `isSpa: true` and let route-level tracking send page events.
 - SDK-generated `did` and `sid` are handled automatically by the browser SDK after initialization.
+- JS SDK session startup also initializes storefront widgets such as recommendations, search, popups, banners/sliders, and stories when their markup is present.
+- Optional parameters should be omitted instead of sent as empty strings; empty optional values can produce `422` API errors.
 
 ## Loading/setup
 
@@ -93,7 +95,7 @@ Arguments:
   - `api_host: string`; custom API host.
   - `cdn_host: string`; custom CDN host, empty value means the default `cdn.rees46.ru`.
   - `pictures_host: string`; custom pictures host, empty/undefined means default.
-  - `consent: boolean`.
+  - `consent: boolean`; when `false`, tracking is disabled and the visitor remains anonymous. Search and some recommendation algorithms can still work.
 - `isSpa` — optional boolean. Pass `true` for SPA session refresh behavior; the SDK checks session ID during tracking and refreshes expired sessions.
 
 Examples:
@@ -140,7 +142,7 @@ Declared ecommerce events:
 
 Unknown event names are sent as custom events to `/push/custom`; custom event `value`, when present, must be an integer.
 
-### Product item shape
+### Product item shape and validation
 
 Most product events accept an ID string/number or object:
 
@@ -159,11 +161,25 @@ Supported item fields include:
 - `recommended_code`
 - `banner_id` for banner/slider tracking.
 
+IDs must match product IDs from the catalog feed. Empty IDs and IDs longer than 255 characters are ignored; if all IDs are invalid, the API can return `422`. For quantities, `amount` and `quantity` are synonyms in request docs; browser examples usually use `amount`. Zero or negative quantities are normalized to `1`; very high quantities may be capped by API behavior. Negative or non-numeric `price` values are ignored.
+
 ### Product view
 
 ```js
 window.r46('track', 'view', { id: 'PRODUCT_ID' })
 ```
+
+When a product view comes from recommendations, instant search, full search, listing, collections, stories, or sliders, preserve attribution when it is not already present in URL/SDK context:
+
+```js
+window.r46('track', 'view', {
+  id: 'PRODUCT_ID',
+  recommended_by: 'dynamic',
+  recommended_code: 'BLOCK_OR_QUERY_CODE',
+})
+```
+
+Common `recommended_by` values include `dynamic`, `instant_search`, `full_search`, `listing`, `stories`, and slider/banner sources returned by API.
 
 ### Category view
 
@@ -188,11 +204,19 @@ window.r46('track', 'cart', [
 ])
 ```
 
+Pass an array when synchronizing the complete current cart. Passing an empty array clears the SDK cart:
+
+```js
+window.r46('track', 'cart', [])
+```
+
 Remove from cart:
 
 ```js
 window.r46('track', 'remove_from_cart', { id: 'PRODUCT_ID', amount: 1 })
 ```
+
+If the user completely clears the cart, prefer the empty full-cart snapshot above instead of sending multiple `remove_from_cart` events.
 
 Fetch current SDK cart by current `did`:
 
@@ -200,21 +224,24 @@ Fetch current SDK cart by current `did`:
 window.r46('cart', 'get', successCallback, errorCallback)
 ```
 
-Response shape from Reference API:
+Response shape from integration docs:
 
 ```js
 { status: 'success', data: { items: [{ uniqid: 'SKU_1', quantity: 1 }] } }
 ```
 
-Clearing a cart requires secret-key server API; do not implement it in browser code.
+Secret-key cart APIs are backend-only, but storefront cart synchronization and cart clearing are browser-safe via `track`, `cart`, arrays.
 
 ### Wishlist
 
 ```js
-window.r46('track', 'wish', { id: 'PRODUCT_ID' })
-window.r46('track', 'wish', [{ id: 'PRODUCT_1' }, { id: 'PRODUCT_2' }])
+window.r46('track', 'wish', 'PRODUCT_ID')
+window.r46('track', 'wish', ['PRODUCT_1', 'PRODUCT_2'])
+window.r46('track', 'wish', []) // clear wishlist
 window.r46('track', 'remove_wish', { id: 'PRODUCT_ID' })
 ```
+
+An array is a full wishlist snapshot. An empty array clears the wishlist. Use `remove_wish` for a single remove action; do not send `remove_wish` with an empty array.
 
 ### Purchase
 
@@ -233,6 +260,8 @@ window.r46('track', 'purchase', {
 ```
 
 `products` is required and must be non-empty.
+
+For purchase tracking, do not manually pass `recommended_by`/`recommended_code`; attribution is resolved from earlier view/cart/search/recommendation events. Pass unit price after discounts for each item. For weighted products, use `amount: 1` and put the final item value in `price`.
 
 ### Search tracking
 
@@ -343,16 +372,18 @@ window.r46('collection', 'COLLECTION_ID', {
 }, successCallback, errorCallback)
 ```
 
-Declarative widget markup from reference can be adapted to REES46 branding:
+Declarative widget markup:
 
 ```html
 <div
-  class="r46-collection-products-results"
+  class="rees46-collection-products-results"
   data-collection-id="COLLECTION_ID"
   data-collection-callback="console.log"
   data-collection-error="console.log"
 ></div>
 ```
+
+For white-label clusters, the `rees46` class prefix may be replaced by the white-label code.
 
 ## Search
 
@@ -452,8 +483,45 @@ Blank/zero-results search exists in the broader SDK ecosystem; only use it from 
 
 ```js
 window.r46('profile', 'set', data, successCallback, errorCallback)
-window.r46('profile', 'get', params, successCallback)
+window.r46('profile', 'get', successCallback, isSpa)
 ```
+
+Use `profile`, `set` when a visitor logs in, registers, changes contact data, or otherwise identifies themselves. This is the main browser-side way to switch the current device/session to the correct CDP profile.
+
+Common standard profile fields:
+
+- `email`
+- `phone`
+- `id` / external ID
+- `loyalty_id`
+- `first_name`
+- `last_name`
+- `location`
+- `gender`
+- `birthday`
+- `kids`
+- `auto`
+
+Custom profile properties can be strings, integers, floats, arrays, JSON objects, booleans, or date strings when the project configuration supports them.
+
+Examples:
+
+```js
+window.r46('profile', 'set', {
+  email: 'customer@example.com',
+  phone: '+10000000000',
+  id: 'CRM_USER_ID',
+  loyalty_id: 'LOYALTY_ID',
+  first_name: 'Jane',
+  last_name: 'Smith',
+})
+
+window.r46('profile', 'get', function (profile) {
+  console.log(profile)
+}, true)
+```
+
+Full profile reads by arbitrary identifier, profile purging, and forced email/phone changes require `shop_secret`; keep them on the backend.
 
 ## Reputation
 
@@ -485,6 +553,22 @@ window.r46('subscription', 'manage', {
   sms_bulk: true,
   sms_chain: true,
   sms_transactional: true,
+  web_push_bulk: true,
+  web_push_chain: true,
+  web_push_transactional: true,
+  mobile_push_bulk: true,
+  mobile_push_chain: true,
+  mobile_push_transactional: true,
+  telegram_bulk: true,
+  telegram_chain: true,
+  telegram_transactional: true,
+  whatsapp_bulk: true,
+  whatsapp_chain: true,
+  whatsapp_transactional: true,
+  max_bulk: true,
+  max_chain: true,
+  max_transactional: true,
+  mobile_wallet_bulk: true,
 })
 ```
 
@@ -495,6 +579,8 @@ window.r46('subscription', 'check', successCallback, errorCallback)
 window.r46('subscription', 'manage', params)
 window.r46('email_subscription', 'manage', params)
 ```
+
+Frontend subscription changes require the current SDK `did`; this prevents arbitrary subscribe/unsubscribe actions by just passing someone else's email or phone. Backend requests use `shop_secret` instead.
 
 Server/system subscription operations such as unsubscribe, complaint, hard bounce, blacklist, changed subscriptions lists, and secret-backed exports are not browser tasks.
 
@@ -516,7 +602,43 @@ window.r46('check_trigger', 'product_price_decrease', params, successCallback, e
 window.r46('check_trigger', 'product_available', params, successCallback, errorCallback)
 ```
 
-Trigger params generally include `item_id` plus at least one identifier such as `email`, `phone`, `external_id`, `loyalty_id`, or current SDK `did` where supported.
+Price-drop trigger examples:
+
+```js
+window.r46('subscribe_trigger', 'product_price_decrease', {
+  email: 'customer@example.com',
+  item: 'PRODUCT_ID',
+  price: 160,
+})
+
+window.r46('unsubscribe_trigger', 'product_price_decrease', {
+  email: 'customer@example.com',
+  item_ids: ['PRODUCT_ID_1', 'PRODUCT_ID_2'],
+})
+
+// Empty item_ids removes all price-drop subscriptions for this identifier.
+window.r46('unsubscribe_trigger', 'product_price_decrease', {
+  email: 'customer@example.com',
+  item_ids: [],
+})
+```
+
+Back-in-stock trigger examples:
+
+```js
+window.r46('subscribe_trigger', 'product_available', {
+  email: 'customer@example.com',
+  item: 'PRODUCT_ID',
+  properties: { fashion_size: 'XL' },
+})
+
+window.r46('unsubscribe_trigger', 'product_available', {
+  email: 'customer@example.com',
+  item_ids: ['PRODUCT_ID_1', 'PRODUCT_ID_2'],
+})
+```
+
+Use `item` for subscribe and `item_ids` for unsubscribe. For unsubscribe, an empty `item_ids` array means unsubscribe from all matching trigger subscriptions for the identifier.
 
 ## Promo codes
 
@@ -593,7 +715,9 @@ For add/remove, Reference API identifies users by `email` and/or `phone`; JS SDK
 window.r46('orders', 'last_for_user', params, successCallback)
 ```
 
-`last_for_user` fetches products from the user's last purchase; other user-order and custom-order endpoints require server/secret API and are not supported by JS SDK per reference.
+`last_for_user` fetches products from the user's last purchase. It can identify the current visitor by SDK `did`; params may also include identifiers such as `external_id` or `telegram_id` when available.
+
+Full order history (`orders/by_user`), order imports, offline orders, status sync, and cancellation endpoints require `shop_secret`; do not implement them in browser code.
 
 ## Products
 
@@ -635,7 +759,7 @@ Info:
 window.r46('products', 'info', params, successCallback, errorCallback) // source-observed; Reference API says JS no implementation for /products/get
 ```
 
-Not-widgetable products, product info by `shop_secret`, product cart clearing, and product subscription exports are server/secret operations; do not implement in browser SDK.
+Not-widgetable products, product info by `shop_secret`, secret-backed product cart APIs, and product subscription exports are server/secret operations; do not implement those endpoints in browser SDK. Use `track`, `cart`, arrays for storefront cart synchronization and clearing.
 
 ## Popups, stories, speech, sliders, debug
 
@@ -651,10 +775,16 @@ window.r46('debug')
 
 Stories: Reference API documents `start_stories` for programmatic story campaign opening; second argument is the story block ID/code. Web `stories_init` availability should be verified in SDK source for new work.
 
+Stories markup:
+
+```html
+<div class="rees46-stories" data-code="STORY_BLOCK_CODE"></div>
+```
+
 Slider examples:
 
 ```html
-<div class="r46-slider" data-slider-code="SLIDER_CODE"></div>
+<div class="rees46-slider" data-slider-code="SLIDER_CODE"></div>
 ```
 
 ```js
@@ -664,7 +794,7 @@ window.r46('slider', { code: 'SLIDER_CODE' }, (response) => console.log(response
 // Render into a block with config.
 window.r46('slider', {
   code: 'SLIDER_CODE',
-  block: 'r46-slider',
+  block: 'rees46-slider',
   config: {
     dotBgColor: 'red',
     dotActiveBgColor: 'green',
@@ -674,3 +804,7 @@ window.r46('slider', {
 ```
 
 Slider params include `code` (required), current SDK identifiers (`did`, email, phone, external_id where supported), and `tags` for comma-separated banner-tag filtering.
+
+## Notification and communication events
+
+Notification center message lists, notification counters, message statuses, and communication delivery/open/click/close tracking are not browser JS SDK tasks in the integration docs. They are server/mobile oriented and often require `shop_secret`, message `code`, and message `type`. Do not expose these endpoints in browser code unless the current JS SDK source explicitly provides a safe wrapper.
