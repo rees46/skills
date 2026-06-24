@@ -242,6 +242,50 @@ git pull
 
 Restart the agent after updating.
 
+## Usage Examples
+
+After installation, ask your agent for a concrete REES46 SDK task. Good prompts mention REES46, JS SDK v3, `r46`, or the integration area you want to work on.
+
+### Add REES46 SDK To A Project
+
+```text
+Add REES46 JS SDK v3 to this storefront. Initialize it once, make it safe for SSR, and show where SHOP_TOKEN should come from.
+```
+
+### Review An Existing Integration
+
+```text
+Review the existing REES46 JS SDK integration in this project. Check duplicate init calls, SPA routing, cart and purchase tracking, and undocumented r46 commands.
+```
+
+### Debug Tracking
+
+```text
+Find why REES46 product view and cart events are not sent correctly. Inspect the current r46 calls and give me a verification checklist for the browser.
+```
+
+### Add Recommendations
+
+```text
+Add REES46 recommendations to the product page. Use product-related recommendations, preserve recommendation attribution for add-to-cart events, and avoid SDK calls that are not documented.
+```
+
+### Check Security Boundaries
+
+```text
+Check this REES46 integration for browser-side secrets or server-only API usage. Move anything unsafe to backend guidance instead of exposing it in client code.
+```
+
+### Use The Skill As Project Rules
+
+If your agent does not load `SKILL.md` automatically, paste a short instruction into the chat or project rules:
+
+```text
+Use the REES46 JS SDK skill from /absolute/path/to/skills/js-sdk.
+Before changing code, read SKILL.md and the relevant files in references/.
+Use only documented r46 commands and include manual verification steps.
+```
+
 ## Releases
 
 Releases are managed by [release-please](https://github.com/googleapis/release-please-action).
