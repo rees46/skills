@@ -242,6 +242,21 @@ git pull
 
 После обновления перезапустите агента.
 
+## Релизы
+
+Релизы управляются через [release-please](https://github.com/googleapis/release-please-action).
+
+При каждом push в `master` release-please читает Conventional Commits и создает или обновляет release PR. Release PR обновляет `CHANGELOG.md` и `version.txt`. После merge этого release PR создаются GitHub Release и tag.
+
+Правила повышения версии:
+
+- `fix:` или `perf:` создают patch-релиз, например `v1.0.1`;
+- `feat:` создает minor-релиз, например `v1.1.0`;
+- `feat!:` / `fix!:` или `BREAKING CHANGE:` создают major-релиз, например `v2.0.0`;
+- коммиты вроде `docs:`, `chore:`, `ci:`, `refactor:` и `test:` сами по себе не создают релиз, если не настроить другое поведение.
+
+После создания GitHub Release workflow загружает `.tar.gz` и `.zip` assets, куда входят только публичные файлы скиллов и README. Приватный submodule `docs` не checkout'ится и не попадает в архивы релиза.
+
 ## Проверка установки
 
 Попросите агента выполнить задачу, которая явно требует REES46 SDK, например:

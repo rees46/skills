@@ -242,6 +242,21 @@ git pull
 
 Restart the agent after updating.
 
+## Releases
+
+Releases are managed by [release-please](https://github.com/googleapis/release-please-action).
+
+On every push to `master`, release-please reads Conventional Commits and opens or updates a release PR. The release PR updates `CHANGELOG.md` and `version.txt`. Merging that release PR creates the GitHub Release and tag.
+
+Version bump rules:
+
+- `fix:` or `perf:` creates a patch release, for example `v1.0.1`;
+- `feat:` creates a minor release, for example `v1.1.0`;
+- `feat!:` / `fix!:` or `BREAKING CHANGE:` creates a major release, for example `v2.0.0`;
+- commits such as `docs:`, `chore:`, `ci:`, `refactor:`, and `test:` do not create a release by themselves unless configured otherwise.
+
+After release-please creates the GitHub Release, the workflow uploads `.tar.gz` and `.zip` assets containing only public skill files and README files. The private `docs` submodule is not checked out and is not included in release archives.
+
 ## Checking That It Works
 
 Ask your agent to work on a task that clearly requires the REES46 SDK, for example:
